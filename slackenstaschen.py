@@ -12,7 +12,7 @@ from PIL import Image, ImageSequence
 slack_token = os.environ["SLACK_API_TOKEN"]
 sc = SlackClient(slack_token)
 
-host = os.getenv("FT_HOST","localhost")
+host = os.getenv("FT_HOST","ft")
 port = int(os.getenv("FT_PORT","1337"))
 display_width = int(os.getenv("FT_WIDTH","45"))
 display_height = int(os.getenv("FT_HEIGHT","35"))
@@ -25,7 +25,7 @@ lastTS = 0
 
 hist = (sc.api_call(
     "channels.history",
-    channel="C5QE71L5T"
+    channel="C64EV2S2E"
 ))
 messages=hist["messages"]
 for i,entry in enumerate(messages):
@@ -45,7 +45,7 @@ while(not shouldExit):
 
     hist = (sc.api_call(
         "channels.history",
-        channel="C5QE71L5T",
+        channel="C64EV2S2E",
         oldest=lastTS+0.00001,
     ))
     messages=hist["messages"]
