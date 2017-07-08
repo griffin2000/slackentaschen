@@ -19,7 +19,6 @@ class Command(object):
     def begin(self, cmd, toks, raw_text):
         tok=cmd
         url=""
-        print(raw_text)
         while (len(tok)):
             tok = toks.get_token()
             if(tok!=">"):
@@ -28,7 +27,6 @@ class Command(object):
         with urllib.request.urlopen(url) as response:
             data = response.read()
             hdr = headersToDict(response.getheaders())
-            print(hdr)
             type = hdr["Content-Type"]
             fileData = io.BytesIO(data)
             if(type=='image/gif' or type=='image/jpg' or type=='image/png'):                
@@ -40,6 +38,9 @@ class Command(object):
                     imgResized = frame.resize((self.width,self.width), Image.ANTIALIAS) 
                     imgResizedConv = imgResized.convert("RGBA") 
                     self.frames.append(imgResizedConv.load())
+                return (True,"Loaded image {} with {} frames".format(url,len(self.frames)))
+            return (False,"Could not load image of type {}".format(type))
+
 
     def end(self):
         self.frames=[]

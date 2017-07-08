@@ -73,7 +73,6 @@ commandClasses = {}
 for importer, modname, ispkg in pkgutil.walk_packages(path=commands.__path__,
                                                       prefix=commands.__name__+'.',
                                                       onerror=lambda x: None):
-    print(modname)
     mod = importlib.import_module(modname)
     classType = getattr(mod, "Command")
     commandClasses[modname] = classType(display_width,display_height)
@@ -86,9 +85,9 @@ imgCommand = commands.image.Command(display_width,display_height)
 
 
 currCommand = None
+commandLength = 60.0
 
 commandFrame=0
-
 while(not shouldExit):
     
     currTime = time.time()
@@ -100,7 +99,6 @@ while(not shouldExit):
         text = entry["text"]
         toks = shlex.shlex(text)
         cmd = toks.get_token()
-        print(cmd)
         modName = "commands."+cmd
         newCommand= None
         if(cmd=="<"):
@@ -109,15 +107,22 @@ while(not shouldExit):
             newCommand = commandClasses[modName]
 
         if(newCommand):
-            if(currCommand):
-                currCommand.end()
-            currCommand = newCommand
-            print("New command {}".format(currCommand.__module__))
-            currCommand.begin(cmd,toks,text)
-            commandFrame = 0
+            cmdRes,cmdMessage = newCommand.begin(cmd,toks,text)
+            print("New command {}".format(newCommand.__module__))
+            print(cmdMessage)
+            if(cmdRes):
+                if(currCommand):
+                    currCommand.end()
+                currCommand = newCommand
+                commandFrame = 0
+                comandStartTime = currTime
 
     if(currCommand):
         currCommand.draw(flaschen_conn,commandFrame)
         commandFrame+=1
         flaschen_conn.send()
+        if(currTime-comandStartTime>commandLength):
+            currCommand.end()
+            currCommand = None
+
     time.sleep(0.1)
