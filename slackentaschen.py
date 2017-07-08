@@ -4,13 +4,60 @@ import flaschen
 import shlex
 import time
 import sys
-from slackclient import SlackClient
-import urllib.request
-import io
-from PIL import Image, ImageSequence
+import threading
+import importlib
 
-slack_token = os.environ["SLACK_API_TOKEN"]
-sc = SlackClient(slack_token)
+from queue import Queue
+
+from slackclient import SlackClient
+
+import commands.image
+
+import pkgutil
+
+
+
+
+class SlackThread(threading.Thread):
+    def __init__(self):
+        threading.Thread.__init__(self)
+        self.slack_token = os.environ["SLACK_API_TOKEN"]
+        self.sc = SlackClient(self.slack_token)     
+
+        self.lastTS = 0
+        self.cmdQueue = Queue()
+
+        hist = (self.sc.api_call(
+            "channels.history",
+            channel="C64EV2S2E"
+        ))
+        messages=hist["messages"]
+        for i,entry in enumerate(messages):
+            currTS = float(entry["ts"])
+            if(self.lastTS<currTS):
+                self.lastTS=currTS
+        self.shouldExit=False
+
+    def run(self):
+        while(not self.shouldExit):
+            hist = (self.sc.api_call(
+                "channels.history",
+                channel="C64EV2S2E",
+                oldest=self.lastTS+0.00001,
+            ))
+            messages=hist["messages"]
+
+    
+            for i,entry in enumerate(messages):
+
+                currTS = float(entry["ts"])        
+            
+                if(self.lastTS<currTS):
+                    self.lastTS=currTS
+                    self.cmdQueue.put(entry)
+            time.sleep(0.25)            
+    def getCommands(self):
+        return self.cmdQueue
 
 host = os.getenv("FT_HOST","ft")
 port = int(os.getenv("FT_PORT","1337"))
@@ -20,107 +67,57 @@ display_height = int(os.getenv("FT_HEIGHT","35"))
 flaschen_conn = flaschen.Flaschen(host,port,display_width,display_height, layer=15)
 
 shouldExit=False
-
-lastTS = 0
-
-hist = (sc.api_call(
-    "channels.history",
-    channel="C64EV2S2E"
-))
-messages=hist["messages"]
-for i,entry in enumerate(messages):
-    currTS = float(entry["ts"])
-    if(lastTS<currTS):
-        lastTS=currTS
-print(lastTS)
+importlib.import_module("commands.color")
+foo =commands.color.Command(display_width,display_height)
+commandClasses = {}
+for importer, modname, ispkg in pkgutil.walk_packages(path=commands.__path__,
+                                                      prefix=commands.__name__+'.',
+                                                      onerror=lambda x: None):
+    print(modname)
+    mod = importlib.import_module(modname)
+    classType = getattr(mod, "Command")
+    commandClasses[modname] = classType(display_width,display_height)
 
 
-def headersToDict(hdrList):
-    hdrDict={}
-    for (name,val) in hdrList:
-        hdrDict[name]=val
-    return hdrDict
+slackThread = SlackThread()
+slackThread.start()
+
+imgCommand = commands.image.Command(display_width,display_height)
+
+
+currCommand = None
+
+commandFrame=0
 
 while(not shouldExit):
-
-    hist = (sc.api_call(
-        "channels.history",
-        channel="C64EV2S2E",
-        oldest=lastTS+0.00001,
-    ))
-    messages=hist["messages"]
-
-    if(len(messages)>0):
-        print("Got {} messages (timestamp:{})".format(len(messages),lastTS))
-    for i,entry in enumerate(messages):
-
-        currTS = float(entry["ts"])
-        if(lastTS<currTS):
-            lastTS=currTS
-            text = entry["text"]
-            toks = shlex.shlex(text)
-            cmd = toks.get_token()
-            print(cmd)
-            if(cmd=="<"):
-                tok=cmd
-                url=""
-                print(text)
-                while (len(tok)):
-                    tok = toks.get_token()
-                    if(tok!=">"):
-                        url += tok
-                
-                print(url)
-                with urllib.request.urlopen(url) as response:
-                    data = response.read()
-                    hdr = headersToDict(response.getheaders())
-                    print(hdr)
-                    type = hdr["Content-Type"]
-                    fileData = io.BytesIO(data)
-                    if(type=='image/gif' or type=='image/jpg' or type=='image/png'):                
-                        print(len(data))
-                        img = Image.open(fileData)
-                        imgIter = ImageSequence.Iterator(img)
-                        frames = []
-                        for frame in imgIter:
-
-                            imgResized = frame.resize((display_width,display_height), Image.ANTIALIAS) 
-                            imgResizedConv = imgResized.convert("RGBA") 
-                            frames.append(imgResizedConv)
-                        if(len(frames)==1):
-                            for frame in frames:
-                                pixels = frame.load()
-                                for i in range(0,display_width):
-                                    for j in range(0,display_height):
-                                        (r,g,b,a) = pixels[(i,j)]
-                                        if(a>5):
-                                            flaschen_conn.set(i,j,(r,g,b))
-                                        else:
-                                            flaschen_conn.set(i,j,(0,0,0))
-                                flaschen_conn.send()
-                        else:
-                            for loopIdx in range(0,10):
-                                for frame in frames:
-                                    pixels = frame.load()
-                                    for i in range(0,display_width):
-                                        for j in range(0,display_height):
-                                            (r,g,b,a) = pixels[(i,j)]
-                                            if(a>5):
-                                                flaschen_conn.set(i,j,(r,g,b))
-                                            else:
-                                                flaschen_conn.set(i,j,(0,0,0))
-                                    flaschen_conn.send()
-                                    time.sleep(0.1)
-            if(cmd=="color"):
-                print("{} {}".format(1,text))	
     
-                r = int(toks.get_token())
-                g = int(toks.get_token())
-                b = int(toks.get_token())
-                for i in range(0,display_width):
-                    for j in range(0,display_height):
-                        flaschen_conn.set(i,j,(r,g,b))
+    currTime = time.time()
 
-                flaschen_conn.send()
+    messages=[]
+    while(not slackThread.getCommands().empty()):
+        entry = slackThread.getCommands().get_nowait()
 
-    time.sleep(0.25)
+        text = entry["text"]
+        toks = shlex.shlex(text)
+        cmd = toks.get_token()
+        print(cmd)
+        modName = "commands."+cmd
+        newCommand= None
+        if(cmd=="<"):
+            newCommand = imgCommand
+        elif (modName in commandClasses):
+            newCommand = commandClasses[modName]
+
+        if(newCommand):
+            if(currCommand):
+                currCommand.end()
+            currCommand = newCommand
+            print("New command {}".format(currCommand.__module__))
+            currCommand.begin(cmd,toks,text)
+            commandFrame = 0
+
+    if(currCommand):
+        currCommand.draw(flaschen_conn,commandFrame)
+        commandFrame+=1
+        flaschen_conn.send()
+    time.sleep(0.1)
