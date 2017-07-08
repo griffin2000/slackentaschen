@@ -16,31 +16,33 @@ class Command(object):
         self.width=width
         self.height=height
 
-    def begin(self, cmd, toks, raw_text):
+    def begin(self, cmd, toks, entry):
         tok=cmd
         url=""
         while (len(tok)):
             tok = toks.get_token()
             if(tok!=">"):
                 url += tok
-                
-        with urllib.request.urlopen(url) as response:
-            data = response.read()
-            hdr = headersToDict(response.getheaders())
-            type = hdr["Content-Type"]
-            fileData = io.BytesIO(data)
-            if(type=='image/gif' or type=='image/jpg' or type=='image/png'):                
-                img = Image.open(fileData)
-                imgIter = ImageSequence.Iterator(img)
+         
+        try:       
+            with urllib.request.urlopen(url) as response:
+                data = response.read()
+                hdr = headersToDict(response.getheaders())
+                type = hdr["Content-Type"]
+                fileData = io.BytesIO(data)
+                if(type=='image/gif' or type=='image/jpg' or type=='image/png'):                
+                    img = Image.open(fileData)
+                    imgIter = ImageSequence.Iterator(img)
 
-                for frame in imgIter:
+                    for frame in imgIter:
 
-                    imgResized = frame.resize((self.width,self.width), Image.ANTIALIAS) 
-                    imgResizedConv = imgResized.convert("RGBA") 
-                    self.frames.append(imgResizedConv.load())
-                return (True,"Loaded image {} with {} frames".format(url,len(self.frames)))
-            return (False,"Could not load image of type {}".format(type))
-
+                        imgResized = frame.resize((self.width,self.width), Image.ANTIALIAS) 
+                        imgResizedConv = imgResized.convert("RGBA") 
+                        self.frames.append(imgResizedConv.load())
+                    return (True,"Loaded image {} with {} frames".format(url,len(self.frames)))
+                return (False,"Could not load image of type {}".format(type))
+        except urllib.error.URLError as err:
+            return (False,"Could not load URL {}: {}".format(url,err))
 
     def end(self):
         self.frames=[]

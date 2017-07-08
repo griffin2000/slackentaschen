@@ -17,19 +17,19 @@ import pkgutil
 
 
 
-
 class SlackThread(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
         self.slack_token = os.environ["SLACK_API_TOKEN"]
         self.sc = SlackClient(self.slack_token)     
 
+        self.channelId = "C64EV2S2E"
         self.lastTS = 0
         self.cmdQueue = Queue()
 
         hist = (self.sc.api_call(
             "channels.history",
-            channel="C64EV2S2E"
+            channel=self.channelId
         ))
         messages=hist["messages"]
         for i,entry in enumerate(messages):
@@ -42,7 +42,7 @@ class SlackThread(threading.Thread):
         while(not self.shouldExit):
             hist = (self.sc.api_call(
                 "channels.history",
-                channel="C64EV2S2E",
+                channel=self.channelId,
                 oldest=self.lastTS+0.00001,
             ))
             messages=hist["messages"]
@@ -82,7 +82,7 @@ slackThread = SlackThread()
 slackThread.start()
 
 imgCommand = commands.image.Command(display_width,display_height)
-
+#jsCommand = commands.javascript.Command(display_width,display_height)
 
 currCommand = None
 commandLength = 60.0
@@ -96,18 +96,27 @@ while(not shouldExit):
     while(not slackThread.getCommands().empty()):
         entry = slackThread.getCommands().get_nowait()
 
+        cmd = ""
         text = entry["text"]
         toks = shlex.shlex(text)
-        cmd = toks.get_token()
-        modName = "commands."+cmd
         newCommand= None
-        if(cmd=="<"):
-            newCommand = imgCommand
-        elif (modName in commandClasses):
-            newCommand = commandClasses[modName]
+
+        #TODO - Handle file authentication
+        #if("file" in entry):
+        #    fileData = entry["file"]
+        #    filetype = fileData["filetype"]
+        #    if(filetype=="javascript"):
+        #        newCommand = jsCommand
+        if(newCommand==None):
+            cmd = toks.get_token()
+            modName = "commands."+cmd
+            if(cmd=="<"):
+                newCommand = imgCommand
+            elif (modName in commandClasses):
+                newCommand = commandClasses[modName]
 
         if(newCommand):
-            cmdRes,cmdMessage = newCommand.begin(cmd,toks,text)
+            cmdRes,cmdMessage = newCommand.begin(cmd,toks,entry)
             print("New command {}".format(newCommand.__module__))
             print(cmdMessage)
             if(cmdRes):

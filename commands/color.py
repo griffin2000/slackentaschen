@@ -13,7 +13,7 @@ class Command(object):
         self.g = 0
         self.b = 0
 
-    def begin(self, cmd, toks, raw_text):
+    def begin(self, cmd, toks, entry):
         self.r = int(toks.get_token())
         self.g = int(toks.get_token())
         self.b = int(toks.get_token())
