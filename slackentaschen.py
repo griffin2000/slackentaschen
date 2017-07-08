@@ -7,7 +7,12 @@ import sys
 import threading
 import importlib
 
-from queue import Queue
+import sys
+is_py2 = sys.version[0] == '2'
+if is_py2:
+    import Queue as queue
+else:
+    import queue as queue
 
 from slackclient import SlackClient
 
@@ -25,7 +30,7 @@ class SlackThread(threading.Thread):
 
         self.channelId = "C64EV2S2E"
         self.lastTS = 0
-        self.cmdQueue = Queue()
+        self.cmdQueue = queue()
 
         hist = (self.sc.api_call(
             "channels.history",
