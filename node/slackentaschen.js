@@ -187,34 +187,42 @@ function loadScaledGIF(url,width,height,name,loadedCB)
 	
 }
 
-var stModule = {}
+var stModule = undefined
 
 loadScaledGIF(url,45,35,"downloaded", (pixels)=>{
 		console.log(pixels)
+		stModule = {}
 		stModule.pixels = pixels;
 		stModule.frame = 0;
+		stModule.fps = 5;
+		stModule.numFrames = stModule.pixels.shape[0] 
+		stModule.beginFrame = (time) => {
+				/*
+				var v0 = 0.5*Math.sin(time*0.001)+0.5;
+				var v1 = 0.5*Math.cos(time*0.001)+0.5;
+				stModule.i0 = Math.floor(255*v0);
+				stModule.i1 = Math.floor(255*v1);	
+				*/
+				console.log(time+" "+stModule.fps+" "+stModule.numFrames+" "+stModule.frame)
+				stModule.frame = ~~(time*stModule.fps) % stModule.numFrames;
+				
+		}
+
+		stModule.evalPixel = (x,y,pixel) => {
+			
+				
+			pixel[0]=stModule.pixels.get(stModule.frame,x,y,0);
+			pixel[1]=stModule.pixels.get(stModule.frame,x,y,1);
+			pixel[2]=stModule.pixels.get(stModule.frame,x,y,2);
+
+			return true;
+		}
+			
+		
 });
 
-stModule.beginFrame = (time) => {
-	/*
-	var v0 = 0.5*Math.sin(time*0.001)+0.5;
-	var v1 = 0.5*Math.cos(time*0.001)+0.5;
-	stModule.i0 = Math.floor(255*v0);
-	stModule.i1 = Math.floor(255*v1);	
-	*/
-	
-	stModule.frame = 0;
-}
 
-stModule.evalPixel = (x,y,pixel) => {
-	pixel[0]=stModule.pixels.get(stModule.frame,x,y,0);
-	pixel[1]=stModule.pixels.get(stModule.frame,x,y,1);
-	pixel[2]=stModule.pixels.get(stModule.frame,x,y,2);
-	
-	return true;
-}
 
-/*
 var ns = nodeslack(1337,"localhost")
 
 console.log(ns)
@@ -234,20 +242,27 @@ function loopFunc(cb,fps)
 
 
 
-
+var startTime=-1;
 loopFunc( () => {
+	if(!stModule)
+		return;
+	
 	var d = new Date();
 	var n = d.getTime();
-	stModule.beginFrame(n)
+	if(startTime<0)
+		startTime = n;
+	stModule.beginFrame((n-startTime)/1000.0)
 	for(var i=0;i<ns.height;i++)
 	{
 		for(var j=0;j<ns.width;j++)
 		{
 			var pixel = ns.getPixel(i,j);
+			pixel.getPixel  = ns.getPixel
+			pixel.getNeighbor = (x,y) => { return ns.getPixel(i+x,j+y); }
+			
 			if(stModule.evalPixel(i,j,pixel))
 				ns.setPixel(i,j,pixel);
 		}
 	}
 	ns.send();
 });
-*/
