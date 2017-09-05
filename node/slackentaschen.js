@@ -1,6 +1,12 @@
 ﻿
-var dgram = require('dgram');
-var utf8 = require('utf8');
+const dgram = require('dgram');
+const utf8 = require('utf8');
+const {execFile} = require('child_process');
+const gifsicle = require('gifsicle');
+const download = require('download-file')
+const https = require('https');
+const fs = require('fs');
+var getPixels = require("get-pixels")
 
 /*
 var Bot = require('slackbots');
@@ -141,6 +147,74 @@ function nodeslack(ftPort,ftHost,width,height) {
 
 
 
+
+ 
+var url = "https://media.giphy.com/media/ehN2xJKYE1HGM/giphy.gif";
+
+
+function loadScaledGIF(url,width,height,name,loadedCB)
+{
+	var name = name || "downloaded"
+	var inFile = name+".gif";
+	var outFile = name+"-processed.gif";
+	
+	var inPath = './tmp/'+inFile
+	var outPath = './tmp/'+outFile;
+	
+	var options = {
+		directory: "./tmp/",
+		filename: inFile
+	}
+	console.log("Downloading "+url)
+		
+	download(url, options, function(err){
+		if (err) throw err
+		console.log(url+" downloaded as "+inPath)
+			
+		execFile(gifsicle, ['-o', outPath, inPath, '--resize','45x35' ,'--resize-method','catrom'], err => {
+			if (err) throw err
+			console.log('Image minified as '+outPath);
+			
+			
+			getPixels(outPath, function(err, pixels) {
+			  if(err) throw err
+			  loadedCB(pixels)
+			})
+
+		});
+
+	}); 
+	
+}
+
+var stModule = {}
+
+loadScaledGIF(url,45,35,"downloaded", (pixels)=>{
+		console.log(pixels)
+		stModule.pixels = pixels;
+		stModule.frame = 0;
+});
+
+stModule.beginFrame = (time) => {
+	/*
+	var v0 = 0.5*Math.sin(time*0.001)+0.5;
+	var v1 = 0.5*Math.cos(time*0.001)+0.5;
+	stModule.i0 = Math.floor(255*v0);
+	stModule.i1 = Math.floor(255*v1);	
+	*/
+	
+	stModule.frame = 0;
+}
+
+stModule.evalPixel = (x,y,pixel) => {
+	pixel[0]=stModule.pixels.get(stModule.frame,x,y,0);
+	pixel[1]=stModule.pixels.get(stModule.frame,x,y,1);
+	pixel[2]=stModule.pixels.get(stModule.frame,x,y,2);
+	
+	return true;
+}
+
+/*
 var ns = nodeslack(1337,"localhost")
 
 console.log(ns)
@@ -157,22 +231,8 @@ function loopFunc(cb,fps)
 		loopFunc(cb);
 	}, 1000.0/fps);
 }
-var stModule = {}
 
-stModule.beginFrame = (time) => {
-	var v0 = 0.5*Math.sin(time*0.001)+0.5;
-	var v1 = 0.5*Math.cos(time*0.001)+0.5;
-	stModule.i0 = Math.floor(255*v0);
-	stModule.i1 = Math.floor(255*v1);	
-}
 
-stModule.evalPixel = (x,y,pixel) => {
-	pixel[0]=255;
-	pixel[1]=stModule.i0;
-	pixel[2]=stModule.i1;
-	
-	return true;
-}
 
 
 loopFunc( () => {
@@ -190,3 +250,4 @@ loopFunc( () => {
 	}
 	ns.send();
 });
+*/
