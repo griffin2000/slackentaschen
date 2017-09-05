@@ -83,7 +83,6 @@ function nodeslack(ftPort,ftHost,width,height) {
 	
 	ns.client.send(ns.message, 0, ns.message.length, ftPort, ftHost, function(err, bytes) {
 		if (err) throw err;
-		console.log('UDP message sent to ' + ftHost +':'+ ftPort);
 
 	});
 	
@@ -114,17 +113,29 @@ function nodeslack(ftPort,ftHost,width,height) {
 		ns.client.close()
 	}
 	
-	ns.setPixel = function(x,y,r,g,b)
+	ns.setPixel = function(x,y,pixel)
 	{
 		
 			var pixelOffset =  y*width+x
 			var offset = pixelOffset*3 + header.length;
-			ns.message.writeUInt8(r,    offset+0)
-			ns.message.writeUInt8(g,    offset+1)
-			ns.message.writeUInt8(b,    offset+2)		
+			ns.message.writeUInt8(pixel[0],    offset+0)
+			ns.message.writeUInt8(pixel[1],    offset+1)
+			ns.message.writeUInt8(pixel[2],    offset+2)		
 			
 	}	
-	
+	ns.getPixel = function(x,y)
+	{
+		
+			var pixelOffset =  y*width+x
+			var offset = pixelOffset*3 + header.length;
+			var pixel = [0,0,0];
+			pixel[0] = ns.message.readUInt8(offset+0)
+			pixel[1] = ns.message.readUInt8(offset+1)
+			pixel[2] = ns.message.readUInt8(offset+2)
+			
+			return pixel;
+			
+	}	
 	return ns;
 }
 
@@ -146,15 +157,36 @@ function loopFunc(cb,fps)
 		loopFunc(cb);
 	}, 1000.0/fps);
 }
+var stModule = {}
+
+stModule.beginFrame = (time) => {
+	var v0 = 0.5*Math.sin(time*0.001)+0.5;
+	var v1 = 0.5*Math.cos(time*0.001)+0.5;
+	stModule.i0 = Math.floor(255*v0);
+	stModule.i1 = Math.floor(255*v1);	
+}
+
+stModule.evalPixel = (x,y,pixel) => {
+	pixel[0]=255;
+	pixel[1]=stModule.i0;
+	pixel[2]=stModule.i1;
+	
+	return true;
+}
+
 
 loopFunc( () => {
-	
-for(var i=0;i<ns.height;i++)
-{
-	for(var j=0;j<ns.width;j++)
+	var d = new Date();
+	var n = d.getTime();
+	stModule.beginFrame(n)
+	for(var i=0;i<ns.height;i++)
 	{
-		ns.setPixel(i,j,255,0,0);
+		for(var j=0;j<ns.width;j++)
+		{
+			var pixel = ns.getPixel(i,j);
+			if(stModule.evalPixel(i,j,pixel))
+				ns.setPixel(i,j,pixel);
+		}
 	}
-}
 	ns.send();
 });
