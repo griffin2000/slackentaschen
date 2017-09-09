@@ -8,7 +8,7 @@ const https = require('https');
 const fs = require('fs');
 var getPixels = require("get-pixels")
 
-/*
+
 var Bot = require('slackbots');
 
 
@@ -16,11 +16,10 @@ console.log(Bot)
 
 // create a bot
 var settings = {
-    token: 'xoxb-236081692178-B2fvuFjNLhTkXkJL1VwE5Wux',
+    token: 'xoxb-236081692178-4TjsUh3nKgcgvwTGrJl5aezE',
     name: 'slackentaschen'
 };
 var bot = new Bot(settings);
-console.log(bot)
 
 bot.on('start', function() {
 	console.log("started");
@@ -28,19 +27,23 @@ bot.on('start', function() {
 });
 
 bot.on('error', function(err) {
-	console.log("Error:"+err);
-    
+	console.log("error:"+err);
 });
+
+bot.on('open', function(err) {
+	console.log("open:"+err);
+});
+
 bot.on('message', function(msg) {
 	if(msg.type=="message")
 	{
 		console.log("Channel:"+msg.channel);
 		console.log("Text:"+msg.text);
+		console.log(msg)
 		
 	}
     
 });
-*/
 
 function nodeslack(ftPort,ftHost,width,height) {
 	ftPort = ftPort||1337;
@@ -110,7 +113,7 @@ function nodeslack(ftPort,ftHost,width,height) {
 				console.log('Error' + err);
 				throw err;
 			}
-			console.log('UDP message sent to ' + ftHost +':'+ ftPort);
+			//console.log('UDP message sent to ' + ftHost +':'+ ftPort);
 		});		
 	}
 	
@@ -124,6 +127,7 @@ function nodeslack(ftPort,ftHost,width,height) {
 		
 			var pixelOffset =  y*width+x
 			var offset = pixelOffset*3 + header.length;
+			
 			ns.message.writeUInt8(pixel[0],    offset+0)
 			ns.message.writeUInt8(pixel[1],    offset+1)
 			ns.message.writeUInt8(pixel[2],    offset+2)		
@@ -150,6 +154,7 @@ function nodeslack(ftPort,ftHost,width,height) {
 
  
 var url = "https://media.giphy.com/media/ehN2xJKYE1HGM/giphy.gif";
+console.log(url)
 
 
 function loadScaledGIF(url,width,height,name,loadedCB)
@@ -190,26 +195,22 @@ function loadScaledGIF(url,width,height,name,loadedCB)
 var stModule = undefined
 
 loadScaledGIF(url,45,35,"downloaded", (pixels)=>{
-		console.log(pixels)
+	
 		stModule = {}
 		stModule.pixels = pixels;
 		stModule.frame = 0;
 		stModule.fps = 5;
 		stModule.numFrames = stModule.pixels.shape[0] 
 		stModule.beginFrame = (time) => {
-				/*
-				var v0 = 0.5*Math.sin(time*0.001)+0.5;
-				var v1 = 0.5*Math.cos(time*0.001)+0.5;
-				stModule.i0 = Math.floor(255*v0);
-				stModule.i1 = Math.floor(255*v1);	
-				*/
-				console.log(time+" "+stModule.fps+" "+stModule.numFrames+" "+stModule.frame)
+	
+				//console.log(time+" "+stModule.fps+" "+stModule.numFrames+" "+stModule.frame)
 				stModule.frame = ~~(time*stModule.fps) % stModule.numFrames;
 				
 		}
 
 		stModule.evalPixel = (x,y,pixel) => {
-			
+			if(pixel[0]==0 && pixel[1]==0 && pixel[2]==0)
+				return false;
 				
 			pixel[0]=stModule.pixels.get(stModule.frame,x,y,0);
 			pixel[1]=stModule.pixels.get(stModule.frame,x,y,1);
@@ -224,8 +225,6 @@ loadScaledGIF(url,45,35,"downloaded", (pixels)=>{
 
 
 var ns = nodeslack(1337,"localhost")
-
-console.log(ns)
 
 
 
